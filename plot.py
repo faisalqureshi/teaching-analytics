@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 
 ignore_columns = [
     'Username',
@@ -12,7 +13,51 @@ ignore_columns = [
     'Child Course ID'
 ]
 
-def read_file(filename, sheet_name):
+grades_ranges = [
+    0,
+    50,
+    60,
+    67,
+    70,
+    73,
+    77,
+    80,
+    85,
+    90,
+    100
+]
+
+letter_grades = [
+    'F',
+    'D',
+    'C',
+    'C+',
+    'B-',
+    'B',
+    'B+',
+    'A-',
+    'A',
+    'A+'
+]
+
+def make_colormap(seq):
+    """Return a LinearSegmentedColormap
+    seq: a sequence of floats and RGB-tuples. The floats should be increasing
+    and in the interval (0,1).
+    """
+    seq = [(None,) * 3, 0.0] + list(seq) + [1.0, (None,) * 3]
+    cdict = {'red': [], 'green': [], 'blue': []}
+    for i, item in enumerate(seq):
+        if isinstance(item, float):
+            r1, g1, b1 = seq[i - 1]
+            r2, g2, b2 = seq[i + 1]
+            cdict['red'].append([item, r1, r2])
+            cdict['green'].append([item, g1, g2])
+            cdict['blue'].append([item, b1, b2])
+
+    return mcolors.LinearSegmentedColormap('CustomMap', cdict)
+
+def read_file(filename, sheet_name=0):
     try:
         df = pd.read_excel(filename, sheet_name=sheet_name)
         return df
@@ -27,15 +72,20 @@ def inspect_columns(df):
         print('\t{:<10}{:40.40}{:16.16}'.format(i,name,str(df[name].dtype)))
         i = i+1
 
-def compute_stats(df, include_columns):
+def compute_stats(df, include_columns, include_columns_totals):
     stats = []
+    
+    i = 0
     for name in include_columns:
         print('Processing {}'.format(name))
-        data = np.nan_to_num(df[name])
+
+        data = np.nan_to_num(df[name]) * 100 / include_columns_totals[i]
         positives = data > 0
         d = data[positives]
+
         column_stats = {'name': name,  'mean': np.mean(d), 'median': np.median(d), 'max': np.max(d), 'min': np.min(d)}
         stats.append(column_stats)
+        i = i+1
     return stats
 
 def print_stats(stats):
@@ -48,12 +98,12 @@ def get_include_columns(df, cols, totals):
     if not cols:
         indices = np.arange(len(df.columns.values))
     else:
-        indices = list(map(int,cols.split(',')))
+        indices = np.array(list(map(int,cols.split(','))))
 
     if not totals:
         totals = np.ones(len(indices))*100
     else:
-        totals = list(map(int,totals.split(',')))
+        totals = np.array(list(map(int,totals.split(','))))
 
     if len(indices) != len(totals):
         print('Totals provided do not match column indices')
@@ -74,10 +124,12 @@ def get_include_columns(df, cols, totals):
 
 def plot_corr(df, include_columns, include_columns_totals, title=''):
 
-    name, total = include_columns[0], include_columns_totals[0]
+    i = 0
+    name, total = include_columns[i], include_columns_totals[i]
     x = np.nan_to_num(df[name]) * 100 / total
 
-    name, total = include_columns[1], include_columns_totals[1]
+    i = 1
+    name, total = include_columns[i], include_columns_totals[i]
     y = np.nan_to_num(df[name]) * 100 / total
 
     fig = plt.figure()
@@ -92,24 +144,78 @@ def plot_corr(df, include_columns, include_columns_totals, title=''):
     ax.set_ylabel('% Marks')
     plt.show()
 
-def plot_hist(df, include_columns, include_columns_totals, title=''):
-    i = 0
+def plot_grades(df, include_columns, include_columns_totals, title='', ranges=None):
+    if not ranges:
+        ranges = grades_ranges
+    else:
+        ranges = np.array(list(map(int,ranges.split(','))))
     
+    i = 0
+    for name in include_columns:
+        print('\n\t{:40.40}'.format(name))
+        data = np.nan_to_num(df[name]) * 100 / include_columns_totals[i]
+        counts, edges = np.histogram(data, ranges)
+        sum = np.sum(counts)
+        
+        print('\t{:10}{:>10}{:>20.20}'.format('Letter', 'Count', 'Percentage'))
+        j = 0
+        for j in range(len(counts)):
+            print('\t{:10}{:>10}{:>20.2f}'.format(letter_grades[j], str(counts[j]), counts[j]*100/sum ))
+            j = j + 1
+        print('\t{:15.15}{:>5}'.format('Total students',str(len(data))))
+        if sum != len(data):
+            print('Warning: sum of counts is not equal to the number of data items.  Check ranges.')
+            print('\t{:15.15}{:>5}'.format('Count',str(sum)))
+        
+        c = mcolors.ColorConverter().to_rgb
+        rvb = make_colormap([c('red'), 0.125, c('red'), c('orange'), 0.25, c('orange'),c('green'),0.5, c('green'),0.7, c('green'), c('blue'), 0.75, c('blue')])
+        fig = plt.figure()
+        fig.suptitle(title, fontsize=18)
+        ax = fig.add_subplot(111)
+        n = len(counts)
+        x = np.arange(len(counts))
+        if len(counts) == len(letter_grades):
+            ax.bar(x, counts*100/sum, tick_label=letter_grades, alpha=0.95, color=rvb(x/n))
+        else:
+            ax.bar(x, counts*100/sum, alpha=0.95, color=rvb(x/n))
+        ax.set_xlabel('Grades')
+        ax.set_ylabel('Percentages')
+        ax.text(0.1,0.91,name,fontsize=16,transform=ax.transAxes)
+        ax.text(0.1,0.85,'Total students {}'.format(str(len(data))),transform=ax.transAxes)
+        if sum != len(data):
+            ax.text(0.1,0.75,'Count {}'.format(sum),transform=ax.transAxes, color='red')
+            ax.text(0.1,0.8,'Warning: check ranges', transform=ax.transAxes, color='red')
+        i += 1
+    plt.show()
+
+def plot_hist(df, include_columns, include_columns_totals, title=''):
+    ranges = np.array([0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100])
+
+    i = 0
     for name in include_columns:
         data = np.nan_to_num(df[name]) * 100 / include_columns_totals[i]
-        positives = data > 0
-        d = data[positives]
+        counts, edges = np.histogram(data, bins=ranges)
+        sum = np.sum(counts)
+        if sum != len(data):
+            print('Warning: sum of counts is not equal to the number of data items.  Check ranges.')
+            print('\t{:15.15}{:>5}'.format('Count',str(sum)))
 
+        c = mcolors.ColorConverter().to_rgb
+        rvb = make_colormap([c('red'), 0.125, c('red'), c('orange'), 0.25, c('orange'),c('green'),0.5, c('green'),0.7, c('green'), c('blue'), 0.75, c('blue')])
         fig = plt.figure()
-        #ax = fig.add_subplot(len(include_columns),1,i+1)
         ax = fig.add_subplot(111)
-        ax.text(0.1,0.85,'Mean={:6.2f}'.format(np.mean(d)), transform=ax.transAxes, color='black')
-        ax.text(0.1,0.8,'Median={:6.2f}'.format(np.median(d)), transform=ax.transAxes, color='black')
-        ax.text(0.1,0.75,'Max={:6.2f}'.format(np.max(d)), transform=ax.transAxes, color='black')
-        ax.text(0.1,0.7,'Min={:6.2f}'.format(np.min(d)), transform=ax.transAxes, color='black')
+        ax.text(0.1,0.85,'Mean={:6.2f}'.format(np.mean(data)), transform=ax.transAxes, color='black')
+        ax.text(0.1,0.8,'Median={:6.2f}'.format(np.median(data)), transform=ax.transAxes, color='black')
+        ax.text(0.1,0.75,'Max={:6.2f}'.format(np.max(data)), transform=ax.transAxes, color='black')
+        ax.text(0.1,0.7,'Min={:6.2f}'.format(np.min(data)), transform=ax.transAxes, color='black')
         ax.text(0.1,0.91,name,transform=ax.transAxes, color='black',fontsize=16)
         ax.set_title(title,fontsize=18)
-        ax.hist(data,bins=20)
+        if sum != len(data):
+            ax.text(0.1,.65,'Warning: check ranges.', color(red))
+            ax.text(0.1,.6,'\t{:15.15}{:>5}'.format('Count',str(sum)))
+        x = np.arange(len(counts))
+        n = len(counts)
+        ax.bar(ranges[1:], counts*100/sum, alpha=0.95, color=rvb(x/n), width=4)
         ax.set_xlabel('% Marks')
         ax.set_xlim(0,100)
         i += 1
@@ -121,10 +227,12 @@ if __name__ == '__main__':
     parser.add_argument('filename', help='Excel containing student scores.')
     parser.add_argument('-i','--inspect', action='store_true', default='False', help='Prints out column headers.  Super useful to identify columns by their indices.')
     parser.add_argument('-c','--columns', action='store', default=None, help='Specify columns that will be considered for analysis.  To analyze columns 4, 6, and 8, simply say --columns=4,6,8.')
+    parser.add_argument('-r','--ranges', action='store', default=None, help='Specify ranges for grade historgam.  Default values are 0,50,60,67,70,73,77,80,85,90,100.')
     parser.add_argument('-t','--totals', action='store', default=None, help='Specify total marks for provided columns.  This is needed to give percentage scores.')
-    parser.add_argument('-a','--action', action='store', default='hist', help='Specify the plot that needs to be generated.  Default is "hist".  Supported actions are "hist" and "corr".  "corr" plots a scatter plot capturing teh correlation between two columns.')
+    parser.add_argument('-a','--action', action='store', default='hist', help='Specify the plot that needs to be generated.  Default is "hist".  Supported actions are "hist", "corr", and "grades".  "corr" plots a scatter plot capturing teh correlation between two columns.')
     # parser.add_argument('-s','--sheet', action='store', default=None, help='Specify the sheet to use for data reading.')
     parser.add_argument('--stats', action='store_true', default=False, help='Compute first order statistics for different columns.')
+    parser.add_argument('--title', action='store', default='', help='Provide a title for the plots.')
 
     args = parser.parse_args()
     print(args)
@@ -146,17 +254,19 @@ if __name__ == '__main__':
         exit(-2)
 
     if args.stats == True:
-        stats = compute_stats(df, include_columns)
+        stats = compute_stats(df, include_columns, include_columns_totals)
         print_stats(stats)
         exit(1)
 
     if args.action == 'hist':
-        plot_hist(df, include_columns, include_columns_totals)
+        plot_hist(df, include_columns, include_columns_totals, title=args.title)
     elif args.action == 'corr':
-        if len(include_columns) > 2:
+        if len(include_columns) != 2:
             print('Please specify only two columns to plot correlatons.')
             exit(-4)
-        plot_corr(df, include_columns, include_columns_totals)
+        plot_corr(df, include_columns, include_columns_totals, title=args.title)
+    elif args.action == 'grades':
+        plot_grades(df, include_columns, include_columns_totals, ranges=args.ranges, title=args.title)
     else:
         print('Unknown action {}.  Nothing to do here.'.format(args.action))
         exit(-5)
