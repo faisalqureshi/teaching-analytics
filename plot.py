@@ -70,7 +70,7 @@ def inspect_columns(df):
     print('\n\t{:<10}{:40.40}{:16.16}'.format('Index','Name','Data type'))
     for name in df.columns.values:
         print('\t{:<10}{:40.40}{:16.16}'.format(i,name,str(df[name].dtype)))
-        i = i+1
+        i += 1
 
 def compute_stats(df, include_columns, include_columns_totals):
     stats = []
@@ -78,32 +78,28 @@ def compute_stats(df, include_columns, include_columns_totals):
     i = 0
     for name in include_columns:
         print('Processing {}'.format(name))
-
         data = np.nan_to_num(df[name]) * 100 / include_columns_totals[i]
-        positives = data > 0
-        d = data[positives]
-
-        column_stats = {'name': name,  'mean': np.mean(d), 'median': np.median(d), 'max': np.max(d), 'min': np.min(d)}
+        column_stats = {'name': name,  'mean': np.mean(data), 'mean2': np.mean(data[data>0]), 'median': np.median(data), 'median2': np.median(data[data>0]), 'max': np.max(data), 'min': np.min(data[data>0])}
         stats.append(column_stats)
         i = i+1
     return stats
 
-def print_stats(stats):
-    print('\n')
-    print('{:>40.40}{:>10.10}{:>10.10}{:>10.10}{:>10.10}'.format('Name','Mean','Median','Min','Max'))
+def print_stats(stats, title=''):
+    print('\n{:^100.100}'.format(title))
+    print('{:>40.40}{:>10.10}{:>10.10}{:>10.10}{:>10.10}{:>10.10}{:>10.10}'.format('Name','Mean0','Mean','Median0','Median','Min','Max'))
     for s in stats:
-        print('{name:>40.40}{mean:10.2f}{median:10.2f}{min:10.2f}{max:10.2f}'.format(**s))
+        print('{name:>40.40}{mean:10.2f}{mean2:10.2f}{median2:10.2f}{median:10.2f}{min:10.2f}{max:10.2f}'.format(**s))
 
 def get_include_columns(df, cols, totals):
     if not cols:
-        indices = np.arange(len(df.columns.values))
+        indices = np.arange(len(df.columns.values)).tolist()
     else:
-        indices = np.array(list(map(int,cols.split(','))))
+        indices = list(map(int,cols.split(',')))
 
     if not totals:
         totals = np.ones(len(indices))*100
     else:
-        totals = np.array(list(map(int,totals.split(','))))
+        totals = list(map(int,totals.split(',')))
 
     if len(indices) != len(totals):
         print('Totals provided do not match column indices')
@@ -123,7 +119,6 @@ def get_include_columns(df, cols, totals):
     return include_columns, include_columns_totals
 
 def plot_corr(df, include_columns, include_columns_totals, title=''):
-
     i = 0
     name, total = include_columns[i], include_columns_totals[i]
     x = np.nan_to_num(df[name]) * 100 / total
@@ -137,7 +132,7 @@ def plot_corr(df, include_columns, include_columns_totals, title=''):
     ax.axis('equal')
     ax.set_title(title,fontsize=18)
     ax.scatter(x, y, alpha=0.5)
-    ax.text(0.1,0.91,'Corr. {} vs. {}'.format(include_columns[0],include_columns[1]),transform=ax.transAxes, color='black',fontsize=16)
+    ax.text(0.1,0.91,'Corr. {} vs. {}'.format(include_columns[0],include_columns[1]),transform=ax.transAxes, color='black',fontsize=14)
     ax.set_xlim(0,100)
     ax.set_ylim(0,100)
     ax.set_xlabel('% Marks')
@@ -204,15 +199,15 @@ def plot_hist(df, include_columns, include_columns_totals, title=''):
         rvb = make_colormap([c('red'), 0.125, c('red'), c('orange'), 0.25, c('orange'),c('green'),0.5, c('green'),0.7, c('green'), c('blue'), 0.75, c('blue')])
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        ax.text(0.1,0.85,'Mean={:6.2f}'.format(np.mean(data)), transform=ax.transAxes, color='black')
-        ax.text(0.1,0.8,'Median={:6.2f}'.format(np.median(data)), transform=ax.transAxes, color='black')
+        ax.text(0.1,0.85,'Mean={:6.2f},{:6.2f}'.format(np.mean(data), np.mean(data[data>0])), transform=ax.transAxes, color='black')
+        ax.text(0.1,0.8,'Median={:6.2f},{:6.2f}'.format(np.median(data), np.median(data[data>0])), transform=ax.transAxes, color='black')
         ax.text(0.1,0.75,'Max={:6.2f}'.format(np.max(data)), transform=ax.transAxes, color='black')
-        ax.text(0.1,0.7,'Min={:6.2f}'.format(np.min(data)), transform=ax.transAxes, color='black')
-        ax.text(0.1,0.91,name,transform=ax.transAxes, color='black',fontsize=16)
+        ax.text(0.1,0.7,'Min={:6.2f}'.format(np.min(data[data > 0])), transform=ax.transAxes, color='black')
+        ax.text(0.1,0.91,name,transform=ax.transAxes, color='black',fontsize=14)
         ax.set_title(title,fontsize=18)
         if sum != len(data):
-            ax.text(0.1,.65,'Warning: check ranges.', color(red))
-            ax.text(0.1,.6,'\t{:15.15}{:>5}'.format('Count',str(sum)))
+            ax.text(0.1,.65,'Warning: check ranges.', color='red', transform=ax.transAxes)
+            ax.text(0.1,.6,'{:15.15}{:>5}'.format('Count',str(sum)), color='red', transform=ax.transAxes)
         x = np.arange(len(counts))
         n = len(counts)
         ax.bar(ranges[1:], counts*100/sum, alpha=0.95, color=rvb(x/n), width=4)
@@ -255,7 +250,7 @@ if __name__ == '__main__':
 
     if args.stats == True:
         stats = compute_stats(df, include_columns, include_columns_totals)
-        print_stats(stats)
+        print_stats(stats, args.title)
         exit(1)
 
     if args.action == 'hist':
