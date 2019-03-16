@@ -6,14 +6,18 @@ import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 
-global ignore_columns
+ignore_columns = [
+    'Username',
+    'Student ID',
+    'Child Course ID'
+]
 
 def read_file(filename, sheet_name):
     try:
-        df = pd.read_excel(args.filename, sheet_name=sheet_name)
+        df = pd.read_excel(filename, sheet_name=sheet_name)
         return df
     except:
-        print('Error reading {}.  Nothing to do here.'.format(args.filename))
+        print('Error reading {}.  Nothing to do here.'.format(filename))
     return pd.DataFrame()
 
 def inspect_columns(df):
@@ -68,7 +72,7 @@ def get_include_columns(df, cols, totals):
         i = i+1
     return include_columns, include_columns_totals
 
-def plot_corr(df, include_columns, include_columns_totals):
+def plot_corr(df, include_columns, include_columns_totals, title=''):
 
     name, total = include_columns[0], include_columns_totals[0]
     x = np.nan_to_num(df[name]) * 100 / total
@@ -79,15 +83,16 @@ def plot_corr(df, include_columns, include_columns_totals):
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.axis('equal')
-    ax.set_title('Corr. {} vs. {}'.format(include_columns[0],include_columns[1]))
+    ax.set_title(title,fontsize=18)
     ax.scatter(x, y, alpha=0.5)
+    ax.text(0.1,0.91,'Corr. {} vs. {}'.format(include_columns[0],include_columns[1]),transform=ax.transAxes, color='black',fontsize=16)
     ax.set_xlim(0,100)
     ax.set_ylim(0,100)
     ax.set_xlabel('% Marks')
     ax.set_ylabel('% Marks')
     plt.show()
 
-def plot_hist(df, include_columns, include_columns_totals):
+def plot_hist(df, include_columns, include_columns_totals, title=''):
     i = 0
     
     for name in include_columns:
@@ -98,11 +103,12 @@ def plot_hist(df, include_columns, include_columns_totals):
         fig = plt.figure()
         #ax = fig.add_subplot(len(include_columns),1,i+1)
         ax = fig.add_subplot(111)
-        ax.text(0.1,0.9,'Mean={:6.2f}'.format(np.mean(d)), transform=ax.transAxes, color='black')
-        ax.text(0.1,0.85,'Median={:6.2f}'.format(np.median(d)), transform=ax.transAxes, color='black')
-        ax.text(0.1,0.8,'Max={:6.2f}'.format(np.max(d)), transform=ax.transAxes, color='black')
-        ax.text(0.1,0.75,'Min={:6.2f}'.format(np.min(d)), transform=ax.transAxes, color='black')
-        ax.set_title(name)
+        ax.text(0.1,0.85,'Mean={:6.2f}'.format(np.mean(d)), transform=ax.transAxes, color='black')
+        ax.text(0.1,0.8,'Median={:6.2f}'.format(np.median(d)), transform=ax.transAxes, color='black')
+        ax.text(0.1,0.75,'Max={:6.2f}'.format(np.max(d)), transform=ax.transAxes, color='black')
+        ax.text(0.1,0.7,'Min={:6.2f}'.format(np.min(d)), transform=ax.transAxes, color='black')
+        ax.text(0.1,0.91,name,transform=ax.transAxes, color='black',fontsize=16)
+        ax.set_title(title,fontsize=18)
         ax.hist(data,bins=20)
         ax.set_xlabel('% Marks')
         ax.set_xlim(0,100)
@@ -111,18 +117,12 @@ def plot_hist(df, include_columns, include_columns_totals):
 
 if __name__ == '__main__':
 
-    ignore_columns = [
-        'Username',
-        'Student ID',
-        'Child Course ID'
-    ]
-
     parser = argparse.ArgumentParser(description='Students score analysis.')
     parser.add_argument('filename', help='Excel containing student scores.')
-    parser.add_argument('-i','--inspect', action='store_true', default='False', help='Prints out column headers.')
-    parser.add_argument('-c','--columns', action='store', default=None, help='Specify columns that will be considered for analysis.')
-    parser.add_argument('-t','--totals', action='store', default=None, help='Specify total marks for provided columns.')
-    parser.add_argument('-a','--action', action='store', default='hist', help='Specify the plot that needs to be generated.  Default is "hist".')
+    parser.add_argument('-i','--inspect', action='store_true', default='False', help='Prints out column headers.  Super useful to identify columns by their indices.')
+    parser.add_argument('-c','--columns', action='store', default=None, help='Specify columns that will be considered for analysis.  To analyze columns 4, 6, and 8, simply say --columns=4,6,8.')
+    parser.add_argument('-t','--totals', action='store', default=None, help='Specify total marks for provided columns.  This is needed to give percentage scores.')
+    parser.add_argument('-a','--action', action='store', default='hist', help='Specify the plot that needs to be generated.  Default is "hist".  Supported actions are "hist" and "corr".  "corr" plots a scatter plot capturing teh correlation between two columns.')
     # parser.add_argument('-s','--sheet', action='store', default=None, help='Specify the sheet to use for data reading.')
     parser.add_argument('--stats', action='store_true', default=False, help='Compute first order statistics for different columns.')
 
