@@ -178,11 +178,11 @@ def plot_grades(df, include_columns, include_columns_totals, title='', ranges=No
             ax.bar(x, counts*100/sum, alpha=0.95, color=rvb(x/n))
         ax.set_xlabel('Grades')
         ax.set_ylabel('Percentages')
-        ax.text(0.1,0.91,name,fontsize=16,transform=ax.transAxes)
-        ax.text(0.1,0.85,'Total students {}'.format(str(len(data))),transform=ax.transAxes)
+        ax.text(0.02,0.91,name,fontsize=16,transform=ax.transAxes)
+        ax.text(0.02,0.85,'Total students {}'.format(str(len(data))),transform=ax.transAxes)
         if sum != len(data):
-            ax.text(0.1,0.75,'Count {}'.format(sum),transform=ax.transAxes, color='red')
-            ax.text(0.1,0.8,'Warning: check ranges', transform=ax.transAxes, color='red')
+            ax.text(0.02,0.75,'Count {}'.format(sum),transform=ax.transAxes, color='red')
+            ax.text(0.02,0.8,'Warning: check ranges', transform=ax.transAxes, color='red')
         i += 1
     plt.show()
 
@@ -193,6 +193,8 @@ def plot_hist(df, include_columns, include_columns_totals, title=''):
     for name in include_columns:
         data = np.nan_to_num(df[name]) * 100 / include_columns_totals[i]
         counts, edges = np.histogram(data, bins=ranges)
+        print(counts)
+        centers = 0.5*(edges[1:]+ edges[:-1])
         sum = np.sum(counts)
         if sum != len(data):
             print('Warning: sum of counts is not equal to the number of data items.  Check ranges.')
@@ -202,18 +204,19 @@ def plot_hist(df, include_columns, include_columns_totals, title=''):
         rvb = make_colormap([c('red'), 0.125, c('red'), c('orange'), 0.25, c('orange'),c('green'),0.5, c('green'),0.7, c('green'), c('blue'), 0.75, c('blue')])
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        ax.text(0.1,0.85,'Mean={:6.2f},{:6.2f}'.format(np.mean(data), np.mean(data[data>0])), transform=ax.transAxes, color='black')
-        ax.text(0.1,0.8,'Median={:6.2f},{:6.2f}'.format(np.median(data), np.median(data[data>0])), transform=ax.transAxes, color='black')
-        ax.text(0.1,0.75,'Max={:6.2f}'.format(np.max(data)), transform=ax.transAxes, color='black')
-        ax.text(0.1,0.7,'Min={:6.2f}'.format(np.min(data[data > 0])), transform=ax.transAxes, color='black')
-        ax.text(0.1,0.91,name,transform=ax.transAxes, color='black',fontsize=14)
+        ax.text(0.02,0.85,'Mean={:6.2f},{:6.2f}'.format(np.mean(data), np.mean(data[data>0])), transform=ax.transAxes, color='black')
+        ax.text(0.02,0.8,'Median={:6.2f},{:6.2f}'.format(np.median(data), np.median(data[data>0])), transform=ax.transAxes, color='black')
+        ax.text(0.02,0.75,'Max={:6.2f}'.format(np.max(data)), transform=ax.transAxes, color='black')
+        ax.text(0.02,0.7,'Min={:6.2f}'.format(np.min(data[data > 0])), transform=ax.transAxes, color='black')
+        ax.text(0.02,0.91,name,transform=ax.transAxes, color='black',fontsize=14)
+        ax.text(0.02,0.65,'Total students={:6.6}'.format(str(len(counts))), transform=ax.transAxes, color='black')
         ax.set_title(title,fontsize=18)
         if sum != len(data):
-            ax.text(0.1,.65,'Warning: check ranges.', color='red', transform=ax.transAxes)
-            ax.text(0.1,.6,'{:15.15}{:>5}'.format('Count',str(sum)), color='red', transform=ax.transAxes)
+            ax.text(0.02,.6,'Warning: check ranges.', color='red', transform=ax.transAxes)
+            ax.text(0.02,.55,'{:15.15}{:>5}'.format('Count',str(sum)), color='red', transform=ax.transAxes)
         x = np.arange(len(counts))
         n = len(counts)
-        ax.bar(ranges[1:], counts*100/sum, alpha=0.95, color=rvb(x/n), width=1)
+        ax.bar(centers, counts, alpha=0.95, color=rvb(x/n), width=1)
         ax.set_xlabel('% Marks')
         ax.set_xlim(0,100)
         i += 1
