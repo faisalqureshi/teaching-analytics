@@ -59,7 +59,10 @@ def make_colormap(seq):
 
 def read_file(filename, sheet_name=0):
     try:
-        df = pd.read_excel(filename, sheet_name=sheet_name)
+        if filename.endswith(('.xlsx', '.xls', '.xlsm')):
+            df = pd.read_excel(filename, sheet_name=sheet_name)
+        else:
+            df = pd.read_csv(filename)
         return df
     except:
         print('Error reading {}.  Nothing to do here.'.format(filename))
@@ -78,7 +81,7 @@ def compute_stats(df, include_columns, include_columns_totals):
     i = 0
     for name in include_columns:
         print('Processing {}'.format(name))
-        data = np.nan_to_num(df[name]) * 100 / include_columns_totals[i]
+        data = np.nan_to_num(df[name].astype('float32')) * 100 / include_columns_totals[i]
         column_stats = {'name': name,  'mean': np.mean(data), 'mean2': np.mean(data[data>0]), 'median': np.median(data), 'median2': np.median(data[data>0]), 'max': np.max(data), 'min': np.min(data[data>0])}
         stats.append(column_stats)
         i = i+1
@@ -110,7 +113,7 @@ def get_include_columns(df, cols, totals):
     i = 0
     for name in df.columns.values:
         if i in indices:
-            if name not in ignore_columns and df[name].dtype == 'float64':
+            if name not in ignore_columns and df[name].dtype in ['float64','int64']:
                 include_columns.append(name)
                 include_columns_totals.append(totals[indices.index(i)])
             else:
@@ -121,11 +124,11 @@ def get_include_columns(df, cols, totals):
 def plot_corr(df, include_columns, include_columns_totals, title=''):
     i = 0
     name, total = include_columns[i], include_columns_totals[i]
-    x = np.nan_to_num(df[name]) * 100 / total
+    x = np.nan_to_num(df[name].astype('float32')) * 100 / total
 
     i = 1
     name, total = include_columns[i], include_columns_totals[i]
-    y = np.nan_to_num(df[name]) * 100 / total
+    y = np.nan_to_num(df[name].astype('float32')) * 100 / total
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -148,7 +151,7 @@ def plot_grades(df, include_columns, include_columns_totals, title='', ranges=No
     i = 0
     for name in include_columns:
         print('\n\t{:40.40}'.format(name))
-        data = np.nan_to_num(df[name]) * 100 / include_columns_totals[i]
+        data = np.nan_to_num(df[name].astype('float32')) * 100 / include_columns_totals[i]
         counts, edges = np.histogram(data, ranges)
         sum = np.sum(counts)
         
@@ -184,8 +187,8 @@ def plot_grades(df, include_columns, include_columns_totals, title='', ranges=No
     plt.show()
 
 def plot_hist(df, include_columns, include_columns_totals, title=''):
-    ranges = np.array([0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95,100])
-
+    ranges = np.arange(101)
+    
     i = 0
     for name in include_columns:
         data = np.nan_to_num(df[name]) * 100 / include_columns_totals[i]
@@ -210,7 +213,7 @@ def plot_hist(df, include_columns, include_columns_totals, title=''):
             ax.text(0.1,.6,'{:15.15}{:>5}'.format('Count',str(sum)), color='red', transform=ax.transAxes)
         x = np.arange(len(counts))
         n = len(counts)
-        ax.bar(ranges[1:], counts*100/sum, alpha=0.95, color=rvb(x/n), width=4)
+        ax.bar(ranges[1:], counts*100/sum, alpha=0.95, color=rvb(x/n), width=1)
         ax.set_xlabel('% Marks')
         ax.set_xlim(0,100)
         i += 1
